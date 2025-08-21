@@ -1,0 +1,20 @@
+{
+    "test_3": {
+        "file_name": "converted_test.json",
+        "file_sha1": "",
+        "columns": {
+            "prompt": "instruction",
+            "query": "input",
+            "response": "output"
+        }
+    },
+    "train_7": {
+        "file_name": "converted_train.json",
+        "file_sha1": "",
+        "columns": {
+            "prompt": "instruction",
+            "query": "input",
+            "response": "output"
+        }
+    }
+}
