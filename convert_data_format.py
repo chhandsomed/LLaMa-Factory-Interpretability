@@ -8,8 +8,11 @@
 import json
 import os
 from pathlib import Path
+import re
 
 def convert_sample(sample):
+    
+
     """转换单个样本的格式"""
     converted = {}
     
@@ -25,12 +28,30 @@ def convert_sample(sample):
     else:
         converted['input'] = sample.get('input', '')
     
+    input_match = re.search(r'请根据以上信息，分析局面并给出你的出牌决策。\s*(.*)', converted['input'], re.DOTALL | re.IGNORECASE)
+    if input_match:
+        converted['input'] = converted['input'].replace(input_match.group(1).strip(),"")
+    
     # 转换 output (处理可能的字典格式)
     if isinstance(sample.get('output'), dict) and 'content' in sample['output']:
         converted['output'] = sample['output']['content']
     else:
         converted['output'] = sample.get('output', '')
     
+    # answer_match = re.search(r'<answer>\s*(.*?)\s*</answer>', converted['output'], re.DOTALL | re.IGNORECASE)
+    # print(answer_match)
+    answer_match_2 = re.search(r'<reasoning>\s*(.*?)\s*</reasoning>', converted['output'], re.DOTALL | re.IGNORECASE)
+    answer_match_3 = re.search(r'</reasoning>\s*(.*)', converted['output'], re.DOTALL | re.IGNORECASE)
+    # print(answer_match_3)
+    # print(answer_match_3.group(1).strip())
+    if  not answer_match_2:
+        # 提取<answer>和<reasoning>标签中的内容
+        return ""
+    
+    if answer_match_3:
+        converted['output'] = "\n<reasoning>" + answer_match_2.group(1).strip() + "</reasoning>" \
+        + "\n\n" + "<answer>" + answer_match_3.group(1).strip() + "</answer>"
+
     # 保留其他字段
     for key, value in sample.items():
         if key not in ['instruction', 'input', 'output']:
@@ -51,7 +72,8 @@ def convert_file(input_path, output_path):
     for i, sample in enumerate(data):
         try:
             converted_sample = convert_sample(sample)
-            converted_data.append(converted_sample)
+            if converted_sample:  # 只添加非空样本
+                converted_data.append(converted_sample)
         except Exception as e:
             print(f"警告: 处理第 {i+1} 个样本时出错: {e}")
             continue
@@ -65,16 +87,17 @@ def convert_file(input_path, output_path):
 
 def main():
     # 文件路径
-    base_dir = Path("/home/ch/work/interpretability_research/lamafactory/LLaMa-Factory-Interpretability/data/test_sft/rawdata")
+    base_dir = Path("/home/ch/work/interpretability_research/data_deal/results")
     
     files_to_convert = [
-        "correct_samples_with_responses_20250818_train.json",
-        "correct_samples_with_responses_20250818_test.json"
+       "correct_samples_with_responses_20250818_201841.json"
     ]
     
     for filename in files_to_convert:
         input_path = base_dir / filename
-        output_path = base_dir / filename  # 直接覆盖原文件
+        # output_path = base_dir / filename  # 直接覆盖原文件
+        new_filename = filename[:filename.find('.json')] + "_converted.json"
+        output_path = base_dir / new_filename
         
         if input_path.exists():
             # 先备份原文件

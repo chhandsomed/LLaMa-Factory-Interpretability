@@ -2,7 +2,7 @@ compute_environment: LOCAL_MACHINE
 deepspeed_config:
   deepspeed_hostfile: /home/ch/work/interpretability_research/lamafactory/hostfile_2machine_8core
   deepspeed_multinode_launcher: pdsh
-  gradient_accumulation_steps: 4
+  gradient_accumulation_steps: 1
   gradient_clipping: 1.0
   offload_optimizer_device: none
   offload_param_device: none
