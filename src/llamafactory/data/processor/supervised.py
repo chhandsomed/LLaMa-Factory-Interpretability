@@ -42,11 +42,13 @@ class SupervisedDatasetProcessor(DatasetProcessor):
     ) -> tuple[list[int], list[int]]:
         messages = self.template.mm_plugin.process_messages(prompt + response, images, videos, audios, self.processor)
         
-        # Debug: Print processing info
-        logger.info_rank0(f"\n[DEBUG PROCESSOR] Processing supervised data:")
+        # Debug: Print processing info (this will show for first example due to flag in preprocess_dataset)
+        logger.info_rank0(f"\n[ENCODE_DATA_EXAMPLE] Processing step by step:")
         logger.info_rank0(f"  Original prompt: {prompt}")
         logger.info_rank0(f"  Original response: {response}")
-        logger.info_rank0(f"  Final messages: {messages}")
+        logger.info_rank0(f"  Combined messages after mm_plugin processing: {messages}")
+        logger.info_rank0(f"  System: {system}")
+        logger.info_rank0(f"  Tools: {tools}")
         
         input_ids, labels = self.template.mm_plugin.process_token_ids(
             [], [], images, videos, audios, self.tokenizer, self.processor
@@ -91,13 +93,21 @@ class SupervisedDatasetProcessor(DatasetProcessor):
             labels += [self.tokenizer.eos_token_id]
 
         # Debug: Print final processed data
-        logger.info_rank0(f"\n[DEBUG PROCESSOR] Final processed result:")
+        logger.info_rank0(f"\n[ENCODE_RESULT] Final tokenized result:")
         logger.info_rank0(f"  input_ids length: {len(input_ids)}")
         logger.info_rank0(f"  labels length: {len(labels)}")
+        logger.info_rank0(f"  input_ids (first 20): {input_ids[:20]}")
+        logger.info_rank0(f"  labels (first 20): {labels[:20]}")
         if input_ids:
             decoded_text = self.tokenizer.decode(input_ids, skip_special_tokens=False)
-            logger.info_rank0(f"  decoded_text: {repr(decoded_text[:1000])}...")
-        logger.info_rank0(f"  labels (first 50): {labels[:50]}")
+            logger.info_rank0(f"  decoded input_ids (first 500 chars): {repr(decoded_text[:500])}")
+            
+            # Also decode labels (excluding IGNORE_INDEX)
+            valid_labels = [label for label in labels if label != IGNORE_INDEX]
+            if valid_labels:
+                decoded_labels = self.tokenizer.decode(valid_labels, skip_special_tokens=False)
+                logger.info_rank0(f"  decoded labels (first 300 chars): {repr(decoded_labels[:300])}")
+        logger.info_rank0(f"{'='*60}\n")
 
         return input_ids, labels
 
@@ -105,12 +115,32 @@ class SupervisedDatasetProcessor(DatasetProcessor):
         # build inputs with format `<bos> X Y <eos>` and labels with format `<ignore> ... <ignore> Y <eos>`
         # for multiturn examples, we only mask the prompt part in each prompt-response pair.
         model_inputs = defaultdict(list)
+        
+        # Add flag to print first example processing details
+        print_first_example = True
+        
         for i in range(len(examples["_prompt"])):
             if len(examples["_prompt"][i]) % 2 != 1 or len(examples["_response"][i]) != 1:
                 logger.warning_rank0(
                     "Dropped invalid example: {}".format(examples["_prompt"][i] + examples["_response"][i])
                 )
                 continue
+
+            # Print detailed processing for first valid example
+            if print_first_example:
+                logger.info_rank0(f"\n{'='*60}")
+                logger.info_rank0(f"DETAILED PROCESSING OF FIRST EXAMPLE (index {i}):")
+                logger.info_rank0(f"{'='*60}")
+                logger.info_rank0(f"Raw input data:")
+                logger.info_rank0(f"  _prompt: {examples['_prompt'][i]}")
+                logger.info_rank0(f"  _response: {examples['_response'][i]}")
+                logger.info_rank0(f"  _system: {examples['_system'][i]}")
+                logger.info_rank0(f"  _tools: {examples['_tools'][i]}")
+                logger.info_rank0(f"  _images: {examples['_images'][i]}")
+                logger.info_rank0(f"  _videos: {examples['_videos'][i]}")
+                logger.info_rank0(f"  _audios: {examples['_audios'][i]}")
+                logger.info_rank0(f"{'='*60}")
+                print_first_example = False
 
             input_ids, labels = self._encode_data_example(
                 prompt=examples["_prompt"][i],

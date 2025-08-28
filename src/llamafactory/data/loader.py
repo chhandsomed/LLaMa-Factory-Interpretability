@@ -253,6 +253,19 @@ def _get_preprocessed_dataset(
             desc="Running tokenizer on dataset",
         )
 
+    # Print first data example before processing
+    if training_args.should_log and not is_eval:
+        try:
+            first_example = next(iter(dataset))
+            print("\n" + "="*50)
+            print("FIRST DATA EXAMPLE BEFORE PROCESSING:")
+            print("="*50)
+            for key, value in first_example.items():
+                print(f"{key}: {value}")
+            print("="*50 + "\n")
+        except StopIteration:
+            print("Dataset is empty, cannot show example before processing")
+
     dataset = dataset.map(
         dataset_processor.preprocess_dataset,
         batched=True,
@@ -263,8 +276,13 @@ def _get_preprocessed_dataset(
 
     if training_args.should_log:
         try:
+            processed_example = next(iter(dataset))
+            print("\n" + "="*50)
+            print("FIRST DATA EXAMPLE AFTER PROCESSING:")
+            print("="*50)
             print("eval example:" if is_eval else "training example:")
-            dataset_processor.print_data_example(next(iter(dataset)))
+            dataset_processor.print_data_example(processed_example)
+            print("="*50 + "\n")
         except StopIteration:
             if stage == "pt":
                 raise RuntimeError("Cannot find sufficient samples, consider increasing dataset size.")
