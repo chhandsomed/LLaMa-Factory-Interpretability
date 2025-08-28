@@ -408,11 +408,25 @@ class ReasoningTemplate(Template):
         tools: Optional[str] = None,
     ) -> tuple[list[int], list[int]]:
         messages = deepcopy(messages)
-        for i in range(1, len(messages) - 2, 2):
-            messages[i]["content"] = self.remove_thought(messages[i]["content"])
+        
+        # Debug: Print original messages
+        logger.info_rank0(f"\n[DEBUG] Original messages:")
+        
+        logger.info_rank0(f"  Message {0} ({messages[0]['role']}): {repr(messages[0]['content'][:200])}...")
+        # for i, msg in enumerate(messages):
+        #     logger.info_rank0(f"  Message {i} ({msg['role']}): {repr(msg['content'][:200])}...")
+        
+        if self.enable_thinking is False:  # remove all cot from historical messages
+            for i in range(1, len(messages) - 2, 2):
+                messages[i]["content"] = self.remove_thought(messages[i]["content"])
 
         if self.enable_thinking is False:  # remove all cot
             messages[-1]["content"] = self.remove_thought(messages[-1]["content"])
+
+        # # Debug: Print processed messages after thinking removal
+        # logger.info_rank0(f"\n[DEBUG] Messages after thinking processing (enable_thinking={self.enable_thinking}):")
+        # for i, msg in enumerate(messages):
+        #     logger.info_rank0(f"  Message {i} ({msg['role']}): {repr(msg['content'][:200])}...")
 
         prompt_ids, response_ids = super().encode_oneturn(tokenizer, messages, system, tools)
         if (
@@ -423,6 +437,17 @@ class ReasoningTemplate(Template):
                 prompt_ids += self.get_thought_word_ids(tokenizer)
             else:  # do compute loss
                 response_ids = self.get_thought_word_ids(tokenizer) + response_ids
+
+        # Debug: Print final token IDs
+        logger.info_rank0(f"\n[DEBUG] Final encoded result:")
+        logger.info_rank0(f"  prompt_ids length: {len(prompt_ids)}")
+        logger.info_rank0(f"  response_ids length: {len(response_ids)}")
+        if prompt_ids:
+            prompt_text = tokenizer.decode(prompt_ids, skip_special_tokens=False)
+            logger.info_rank0(f"  prompt_text: {repr(prompt_text[:500])}...")
+        if response_ids:
+            response_text = tokenizer.decode(response_ids, skip_special_tokens=False)
+            logger.info_rank0(f"  response_text: {repr(response_text[:500])}...")
 
         return prompt_ids, response_ids
 
@@ -435,9 +460,24 @@ class ReasoningTemplate(Template):
         tools: Optional[str] = None,
     ) -> list[tuple[list[int], list[int]]]:
         messages = deepcopy(messages)
+        
+        # Debug: Print original multiturn messages
+        logger.info_rank0(f"\n[DEBUG MULTITURN] Original messages:")
+        logger.info_rank0(f"  Message {0} ({messages[0]['role']}): {repr(messages[0]['content'][:200])}...")
+
+        # for i, msg in enumerate(messages):
+        #     logger.info_rank0(f"  Message {i} ({msg['role']}): {repr(msg['content'][:200])}...")
+        
         if self.enable_thinking is False:  # remove all cot
             for i in range(1, len(messages), 2):
                 messages[i]["content"] = self.remove_thought(messages[i]["content"])
+
+        # Debug: Print processed multiturn messages
+        logger.info_rank0(f"\n[DEBUG MULTITURN] Messages after thinking processing (enable_thinking={self.enable_thinking}):")
+        logger.info_rank0(f"  Message {0} ({messages[0]['role']}): {repr(messages[0]['content'][:200])}...")
+
+        # for i, msg in enumerate(messages):
+        #     logger.info_rank0(f"  Message {i} ({msg['role']}): {repr(msg['content'][:200])}...")
 
         encoded_messages = self._encode(tokenizer, messages, system, tools)
         for i in range(0, len(messages), 2):
@@ -450,7 +490,21 @@ class ReasoningTemplate(Template):
                 else:  # do compute loss
                     encoded_messages[i + 1] = self.get_thought_word_ids(tokenizer) + encoded_messages[i + 1]
 
-        return [(encoded_messages[i], encoded_messages[i + 1]) for i in range(0, len(encoded_messages), 2)]
+        # Debug: Print final multiturn encoded results
+        result_pairs = [(encoded_messages[i], encoded_messages[i + 1]) for i in range(0, len(encoded_messages), 2)]
+        logger.info_rank0(f"\n[DEBUG MULTITURN] Final encoded pairs:")
+        for idx, (prompt_ids, response_ids) in enumerate(result_pairs):
+            logger.info_rank0(f"  Turn {idx}:")
+            logger.info_rank0(f"    prompt_ids length: {len(prompt_ids)}")
+            logger.info_rank0(f"    response_ids length: {len(response_ids)}")
+            if prompt_ids:
+                prompt_text = tokenizer.decode(prompt_ids, skip_special_tokens=False)
+                logger.info_rank0(f"    prompt_text: {repr(prompt_text[:300])}...")
+            if response_ids:
+                response_text = tokenizer.decode(response_ids, skip_special_tokens=False)
+                logger.info_rank0(f"    response_text: {repr(response_text[:300])}...")
+
+        return result_pairs
 
 
 TEMPLATES: dict[str, "Template"] = {}

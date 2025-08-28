@@ -17,15 +17,15 @@ accelerate launch --config_file platform_default_config.yaml.8core_multi src/tra
     --finetuning_type full \
     --template qwen3 \
     --model_name_or_path /home/huggingface_cache/hub/models--Qwen--Qwen3-4B-Thinking-2507/snapshots/768f209d9ea81521153ed38c47d515654e938aea \
-    --dataset_dir data/wawa_sft/rawdata \
-    --tokenized_path data/wawa_sft/cache \
+    --dataset_dir data/wakeng_sft_have_think/rawdata \
+    --tokenized_path data/wakeng_sft_have_think/cache \
     --dataset data_1042 \
     --val_size 0.2 \
     --seed 1042 \
     --bf16 True \
     --overwrite_cache False \
     --cutoff_len 2048 \
-    --output_dir output/train_wakeng_sft_have_think_8core_qwen3-4b-thinking \
+    --output_dir output/train_wakeng_sft_have_think_8core_qwen3-4b-thinking_3 \
     --num_train_epochs 4 \
     --per_device_train_batch_size 2 \
     --per_device_eval_batch_size 2 \
@@ -44,4 +44,5 @@ accelerate launch --config_file platform_default_config.yaml.8core_multi src/tra
     --overwrite_output_dir True \
     --save_only_model False \
     --enable_thinking True \
-    --max_grad_norm 1.0 
+    --max_grad_norm 1.0 \
+    --report_to "tensorboard" 

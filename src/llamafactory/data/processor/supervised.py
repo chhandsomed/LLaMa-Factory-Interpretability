@@ -41,6 +41,13 @@ class SupervisedDatasetProcessor(DatasetProcessor):
         audios: list["AudioInput"],
     ) -> tuple[list[int], list[int]]:
         messages = self.template.mm_plugin.process_messages(prompt + response, images, videos, audios, self.processor)
+        
+        # Debug: Print processing info
+        logger.info_rank0(f"\n[DEBUG PROCESSOR] Processing supervised data:")
+        logger.info_rank0(f"  Original prompt: {prompt}")
+        logger.info_rank0(f"  Original response: {response}")
+        logger.info_rank0(f"  Final messages: {messages}")
+        
         input_ids, labels = self.template.mm_plugin.process_token_ids(
             [], [], images, videos, audios, self.tokenizer, self.processor
         )
@@ -83,6 +90,15 @@ class SupervisedDatasetProcessor(DatasetProcessor):
             input_ids += [self.tokenizer.eos_token_id]
             labels += [self.tokenizer.eos_token_id]
 
+        # Debug: Print final processed data
+        logger.info_rank0(f"\n[DEBUG PROCESSOR] Final processed result:")
+        logger.info_rank0(f"  input_ids length: {len(input_ids)}")
+        logger.info_rank0(f"  labels length: {len(labels)}")
+        if input_ids:
+            decoded_text = self.tokenizer.decode(input_ids, skip_special_tokens=False)
+            logger.info_rank0(f"  decoded_text: {repr(decoded_text[:1000])}...")
+        logger.info_rank0(f"  labels (first 50): {labels[:50]}")
+
         return input_ids, labels
 
     def preprocess_dataset(self, examples: dict[str, list[Any]]) -> dict[str, list[Any]]:
@@ -116,10 +132,10 @@ class SupervisedDatasetProcessor(DatasetProcessor):
 
     def print_data_example(self, example: dict[str, list[int]]) -> None:
         valid_labels = list(filter(lambda x: x != IGNORE_INDEX, example["labels"]))
-        print("input_ids:\n{}".format(example["input_ids"]))
-        print("inputs:\n{}".format(self.tokenizer.decode(example["input_ids"], skip_special_tokens=False)))
-        print("label_ids:\n{}".format(example["labels"]))
-        print(f"labels:\n{self.tokenizer.decode(valid_labels, skip_special_tokens=False)}")
+        logger.info_rank0("input_ids:\n{}".format(example["input_ids"]))
+        logger.info_rank0("inputs:\n{}".format(self.tokenizer.decode(example["input_ids"], skip_special_tokens=False)))
+        logger.info_rank0("label_ids:\n{}".format(example["labels"]))
+        logger.info_rank0(f"labels:\n{self.tokenizer.decode(valid_labels, skip_special_tokens=False)}")
 
 
 @dataclass
